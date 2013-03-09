@@ -46,16 +46,18 @@ def create_thumbs(source, dest):
 
     for picture in picture_objects(src):
         with to_stream(picture) as picture_stream:
-            logging.info("processing %s", picture.checksum)
+            logging.info("saving thumb for %s", picture.checksum)
             thumb = save_thumb(picture_stream, dst)
-            thumb.metadata = repr(
-                dict(
-                    thumbnail=
-                    {
-                        picture.checksum : eval(picture.metadata)
-                    }
-                )
-            )
+
+            if thumb.metadata:
+                logging.info("potential duplicate thumb")
+                metadata = eval(thumb.metadata)
+            else:
+                metadata = dict(thumbnail=dict())
+
+            metadata['thumbnail'][picture.checksum] = eval(picture.metadata)
+
+            thumb.metadata = repr(metadata)
 
 
 def parse_args():

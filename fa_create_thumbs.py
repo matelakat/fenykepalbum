@@ -45,9 +45,9 @@ def create_thumbs(source, dest):
     dst = repository.Repository(fs.Directory(dest))
 
     for picture in picture_objects(src):
-        with to_stream(picture):
+        with to_stream(picture) as picture_stream:
             logging.info("processing %s", picture.checksum)
-            thumb = save_thumb(to_stream(picture), dst)
+            thumb = save_thumb(picture_stream, dst)
             thumb.metadata = repr(dict(eval(picture.metadata), thumb_for=picture.checksum))
 
 

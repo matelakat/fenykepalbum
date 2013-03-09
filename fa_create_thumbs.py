@@ -48,7 +48,14 @@ def create_thumbs(source, dest):
         with to_stream(picture) as picture_stream:
             logging.info("processing %s", picture.checksum)
             thumb = save_thumb(picture_stream, dst)
-            thumb.metadata = repr(dict(eval(picture.metadata), thumb_for=picture.checksum))
+            thumb.metadata = repr(
+                dict(
+                    thumbnail=
+                    {
+                        picture.checksum : eval(picture.metadata)
+                    }
+                )
+            )
 
 
 def parse_args():

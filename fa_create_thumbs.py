@@ -3,6 +3,7 @@ from filestore import repository
 import fs
 import subprocess
 import StringIO
+import picture_lib
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -15,25 +16,6 @@ def save_thumb(stream, repo):
     return repo.save(StringIO.StringIO(out))
 
 
-def is_picture(metadata):
-    try:
-        md = eval(metadata)
-        for source in md['sources']:
-            if source['fname'].lower().endswith(".jpg"):
-                return True
-    except:
-        pass
-
-    return False
-
-
-def picture_objects(repository):
-    for obj in repository.objects():
-        metadata = obj.metadata
-        if is_picture(metadata):
-            yield obj
-
-
 def to_stream(obj):
     import os
     fname = os.path.join(obj.directory.root, obj.checksum)
@@ -44,7 +26,7 @@ def create_thumbs(source, dest):
     src = repository.Repository(fs.Directory(source))
     dst = repository.Repository(fs.Directory(dest))
 
-    for picture in picture_objects(src):
+    for picture in picture_lib.picture_objects(src):
         with to_stream(picture) as picture_stream:
             logging.info("saving thumb for %s", picture.checksum)
             thumb = save_thumb(picture_stream, dst)

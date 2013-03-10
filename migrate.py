@@ -14,18 +14,24 @@ def migrate(source):
         try:
             metadata = eval(obj.metadata)
         except:
-            logging.info('%s: bad metadata: %s', obj.checksum, obj.metadata)
+            logging.warning('%s bad metadata: %s', obj.checksum, obj.metadata)
             continue
 
-        if metadata.get('thumbnail'):
-            logging.info('%s: already at version 1', obj.checksum)
-            continue
+        if not metadata.get('thumbnail'):
+            logging.info('%s migrating to version 1', obj.checksum)
+            thumb_for = metadata['thumb_for']
+            del metadata['thumb_for']
 
-        thumb_for = metadata['thumb_for']
-        del metadata['thumb_for']
+            new_metadata = dict(thumbnail={ thumb_for : metadata })
+            obj.metadata = repr(new_metadata)
 
-        new_metadata = dict(thumbnail={ thumb_for : metadata })
-        obj.metadata = repr(new_metadata)
+        metadata = eval(obj.metadata)
+        if not metadata['thumbnail'].get('size'):
+            logging.info('%s add size and format fields', obj.checksum)
+            metadata['thumbnail']['size'] = 100
+            metadata['thumbnail']['format'] = 'gif'
+            obj.metadata = repr(metadata)
+
 
 
 def parse_args():

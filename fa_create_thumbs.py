@@ -56,6 +56,8 @@ def create_thumbs(source, dest):
                 metadata = dict(thumbnail=dict())
 
             metadata['thumbnail'][picture.checksum] = eval(picture.metadata)
+            metadata['thumbnail']['size'] = 100
+            metadata['thumbnail']['format'] = 'gif'
 
             thumb.metadata = repr(metadata)
 

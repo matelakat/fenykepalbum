@@ -1,4 +1,5 @@
-from Tkinter import PhotoImage, Label, Tk, Canvas, NW
+from Tkinter import PhotoImage, Label, Tk, Canvas, NW, NE
+
 import sys
 import os
 
@@ -27,9 +28,9 @@ class Settings(object):
 
 class App(object):
 
-    def __init__(self, canvas, settings, image_provider, stream):
+    def __init__(self, canvas, settings, image_provider, catalog):
         self.canvas = canvas
-        self.stream = stream
+        self.catalog = catalog
         self.photo = None
         self.image_provider = image_provider
         self.image = self.canvas.create_image(
@@ -53,7 +54,12 @@ class App(object):
         hline(settings.height / 3)
         hline(2 * settings.height / 3)
 
-        self.update_image()
+        self.caption = canvas.create_text(settings.width, 0, anchor=NE, font="Courier 10")
+
+        self.category_mark = canvas.create_rectangle(
+            0, 0, 0, 0, fill="red")
+
+        self.update()
 
     def get_region(self, event):
         if event.x < self.settings.first_third:
@@ -67,7 +73,11 @@ class App(object):
                 return "2"
             return "1"
 
-    def update_image(self):
+    def update(self):
+        self.update_photo()
+        self.update_category()
+
+    def update_photo(self):
         self.photo = PhotoImage(file=self.image_provider.filename)
         w = self.photo.width()
         h = self.photo.height()
@@ -76,20 +86,38 @@ class App(object):
         x = (self.settings.width - w ) / 2
         y = (self.settings.height - h ) / 2
         self.canvas.coords(self.image, x, y)
+        caption = "%s / %s [%s]" % (
+            self.image_provider.index, self.image_provider.length,
+            self.image_provider.identifier)
+        self.canvas.itemconfigure(
+            self.caption, text=caption)
+
+    def update_category(self):
+        category = self.catalog.get_category_for(self.image_provider.identifier)
+        settings = self.settings
+        offset = settings.height / 3
+        coord_mapping = {
+            '0': (settings.width / 18, settings.height / 9, settings.width / 9, 2 * settings.height / 9),
+            '1': (settings.width / 18, offset + settings.height / 9, settings.width / 9, offset + 2 * settings.height / 9),
+            '2': (settings.width / 18, 2 * offset + settings.height / 9, settings.width / 9, 2 * offset + 2 * settings.height / 9),
+        }
+
+        coords = coord_mapping.get(category, (0, 0, 0, 0))
+        self.canvas.coords(self.category_mark, *coords)
 
     def clicked(self, event):
         region = self.get_region(event)
-        self.stream.write(self.image_provider.identifier)
+        category = None
         if region == "left":
             self.image_provider.prev()
         elif region == "right":
             self.image_provider.next()
         else:
-            self.stream.write(" " + region)
+            category = region
 
-        self.stream.write("\n")
+        self.catalog.set_category_for(self.image_provider.identifier, category)
 
-        self.update_image()
+        self.update()
 
 
 class StaticImageProvider(object):
@@ -109,6 +137,14 @@ class StaticImageProvider(object):
     def filename(self):
         return self.images[self.actual_image]
 
+    @property
+    def index(self):
+        return self.actual_image
+
+    @property
+    def length(self):
+        return len(self.images)
+
 
 class RepoImageProvider(object):
     def __init__(self, source, start_at):
@@ -125,6 +161,14 @@ class RepoImageProvider(object):
                     break
                 else:
                     self.obj_idx += 1
+
+    @property
+    def index(self):
+        return self.obj_idx
+
+    @property
+    def length(self):
+        return len(self.objects)
 
     def next(self):
         self.obj_idx += 1
@@ -148,6 +192,55 @@ class RepoImageProvider(object):
         return os.path.join(self.obj.directory.root, self.obj.checksum)
 
 
+class InMemoryCatalog(object):
+    def __init__(self, categories):
+        self.categories = categories
+
+    def get_category_for(self, identifier):
+        return self.categories.get(identifier)
+
+    def set_category_for(self, identifier, value):
+        if value:
+            self.categories[identifier] = value
+
+
+class CategoryLog(object):
+
+    def __init__(self, filename):
+        self.filename = filename
+
+    def wrap_catalog(self, catalog):
+
+        class WrappedCatalog(object):
+            def get_category_for(_self, identifier):
+                return catalog.get_category_for(identifier)
+
+            def set_category_for(_self, identifier, value):
+                with open(self.filename, "a") as logfile:
+                    if value:
+                        logfile.write("%s %s\n" % (identifier, value))
+                    else:
+                        logfile.write("%s\n" % identifier)
+
+                catalog.set_category_for(identifier, value)
+
+        return WrappedCatalog()
+
+    @property
+    def entries(self):
+        with open(self.filename, "rb") as f:
+            for line in f:
+                data = line.strip().split()
+                identifier = data[0]
+                if len(data) == 2:
+                    category = data[1]
+                else:
+                    category = None
+
+                yield identifier, category
+
+
+
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='Sort thumbnails')
@@ -156,28 +249,32 @@ def parse_args():
     return parser.parse_args()
 
 
-def start_app(source, categories):
+def start_app(source, categories_file):
     root = Tk()
     settings = Settings(480, 320)
     canvas = Canvas(root, width=settings.width, height=settings.height)
 
-    last = None
-    try:
-        with open(categories, "rb") as f:
-            for line in f:
-                pass
+    category_log = CategoryLog(categories_file)
+    categories = dict()
+    last_identifier = None
 
-        last = line.strip().split()[0]
-    except:
-        pass
+    for identifier, category in category_log.entries:
+        last_identifier = identifier
+        if category:
+            categories[identifier] = category
 
-    print last
+    catalog = InMemoryCatalog(categories)
 
-    with open(categories, "a") as f:
-        app = App(canvas, settings, RepoImageProvider(source, last), f)
-        canvas.bind("<Button-1>", app.clicked)
-        canvas.place(x=0, y=0)
-        root.mainloop()
+    logging_catalog = category_log.wrap_catalog(catalog)
+
+    app = App(
+        canvas, settings,
+        RepoImageProvider(source, last_identifier),
+        logging_catalog)
+
+    canvas.bind("<Button-1>", app.clicked)
+    canvas.place(x=0, y=0)
+    root.mainloop()
 
 if __name__ == "__main__":
     args = parse_args()

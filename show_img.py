@@ -163,12 +163,16 @@ class StaticImageProvider(object):
 
 
 class RepoImageProvider(object):
-    def __init__(self, source, start_at):
+    def __init__(self, source, start_at, checksum_list=None):
         from filestore import repository
         import fs
 
         repo = repository.Repository(fs.Directory(source))
-        self.objects = sorted(list(repo.objects()), key=lambda x:x.checksum)
+        if checksum_list:
+            object_by_key = dict((x.checksum, x) for x in repo.objects())
+            self.objects = [object_by_key[checksum] for checksum in checksum_list]
+        else:
+            self.objects = sorted(list(repo.objects()), key=lambda x:x.checksum)
         self.obj_idx = 0
 
         if start_at:
@@ -262,10 +266,24 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Sort thumbnails')
     parser.add_argument('source', help='Source filestore')
     parser.add_argument('categories', help='File to record categories')
+    parser.add_argument(
+        '--checksum_list_file', help='File containing list of checksums to show',
+        default=None)
     return parser.parse_args()
 
 
-def start_app(source, categories_file):
+def load_checksums(checksum_list_file):
+    checksums = []
+
+    if checksum_list_file:
+        with open(checksum_list_file, 'rb') as f:
+            for line in f:
+                checksums.append(line.strip())
+
+    return checksums
+
+
+def start_app(source, categories_file, checksum_list_file):
     root = Tk()
     settings = Settings(480, 320)
     canvas = Canvas(root, width=settings.width, height=settings.height)
@@ -285,7 +303,7 @@ def start_app(source, categories_file):
 
     app = App(
         canvas, settings,
-        RepoImageProvider(source, last_identifier),
+        RepoImageProvider(source, last_identifier, load_checksums(checksum_list_file)),
         logging_catalog)
 
     canvas.bind("<Button-1>", app.clicked)
@@ -294,4 +312,4 @@ def start_app(source, categories_file):
 
 if __name__ == "__main__":
     args = parse_args()
-    start_app(args.source, args.categories)
+    start_app(args.source, args.categories, args.checksum_list_file)

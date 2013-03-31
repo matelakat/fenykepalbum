@@ -1,3 +1,4 @@
+import contextlib
 from Tkinter import PhotoImage, Label, Tk, Canvas, NW, NE
 
 import sys
@@ -73,9 +74,23 @@ class App(object):
                 return "2"
             return "1"
 
-    def update(self):
-        self.update_photo()
-        self.update_category()
+    def update(self, update_photo=True, update_category=True):
+        if update_photo:
+            self.update_photo()
+        if update_category:
+            self.update_category()
+
+    @contextlib.contextmanager
+    def monitor_changes(self):
+        photo_before = self.image_provider.identifier
+        category_before = self.catalog.get_category_for(photo_before)
+        result = dict()
+        yield result
+
+        if self.image_provider.identifier == photo_before:
+            result['update_photo'] = False
+        if category_before == self.catalog.get_category_for(self.image_provider.identifier):
+            result['update_category'] = False
 
     def update_photo(self):
         self.photo = PhotoImage(file=self.image_provider.filename)
@@ -106,18 +121,19 @@ class App(object):
         self.canvas.coords(self.category_mark, *coords)
 
     def clicked(self, event):
-        region = self.get_region(event)
-        category = None
-        if region == "left":
-            self.image_provider.prev()
-        elif region == "right":
-            self.image_provider.next()
-        else:
-            category = region
+        with self.monitor_changes() as update_actions:
+            region = self.get_region(event)
+            category = None
+            if region == "left":
+                self.image_provider.prev()
+            elif region == "right":
+                self.image_provider.next()
+            else:
+                category = region
 
-        self.catalog.set_category_for(self.image_provider.identifier, category)
+            self.catalog.set_category_for(self.image_provider.identifier, category)
 
-        self.update()
+        self.update(**update_actions)
 
 
 class StaticImageProvider(object):

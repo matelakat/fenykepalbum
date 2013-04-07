@@ -2,26 +2,10 @@ import picture_lib
 import argparse
 from filestore import repository
 import fs
-import subprocess
+import utils
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
-
-
-def to_structured_info(raw_info):
-    def kvgen():
-        for line in raw_info.split('\n'):
-            key, _, value = line.partition('=')
-            yield key, value
-
-    return dict(kvgen())
-
-
-def get_raw_exif_info(stream):
-    cmd = """identify -format %[EXIF:*] -"""
-    proc = subprocess.Popen(cmd.split(), stdin=stream, stdout=subprocess.PIPE)
-    out, err = proc.communicate()
-    return out
 
 
 class ThumbFinder(object):
@@ -56,8 +40,8 @@ def update_exif_info(source, thumbs):
         metadata = eval(thumb.metadata)
 
         if not metadata['thumbnail'][picture.checksum].get('exif'):
-            raw_info = get_raw_exif_info(picture.stream())
-            exif_info = to_structured_info(raw_info)
+            raw_info = utils.get_raw_exif_info(picture.stream())
+            exif_info = utils.to_structured_info(raw_info)
             logging.info('%s update metadata', picture.checksum)
             metadata['thumbnail'][picture.checksum]['exif'] = exif_info
             thumb.metadata = repr(metadata)

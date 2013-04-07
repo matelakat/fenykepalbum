@@ -2,19 +2,11 @@ import argparse
 from filestore import repository
 import fs
 import subprocess
-import StringIO
 import picture_lib
+import utils
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
-
-
-def save_thumb(stream, repo, size):
-    size_option = "%sx%s" % (size, size)
-    cmd = "convert -resize %s -auto-orient - gif:-" % size_option
-    proc = subprocess.Popen(cmd.split(), stdin=stream, stdout=subprocess.PIPE)
-    out, err = proc.communicate()
-    return repo.save(StringIO.StringIO(out))
 
 
 def to_stream(obj):
@@ -31,7 +23,7 @@ def create_thumbs(source, dest, size):
     for picture in picture_lib.picture_objects(src):
         with to_stream(picture) as picture_stream:
             logging.info("saving thumb for %s", picture.checksum)
-            thumb = save_thumb(picture_stream, dst, size)
+            thumb = utils.save_thumb(picture_stream, dst, size)
 
             if thumb.metadata:
                 logging.info("potential duplicate thumb")

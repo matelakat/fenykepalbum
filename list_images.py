@@ -37,8 +37,7 @@ def print_metadata(url):
         date_field = exif['exif:DateTimeOriginal']
         date = datetime.datetime.strptime(date_field, "%Y:%m:%d %H:%M:%S")
         print date.strftime('%Y-%m-%d_%H:%M:%S'), metadata['thumbs']['320'], url
-        if len(metadata.keys()) != 3:
-            assert False
+        assert len(metadata.keys()) == 3
 
 
 def to_url(base, fname):

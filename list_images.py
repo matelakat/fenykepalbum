@@ -31,15 +31,14 @@ def print_metadata(url):
     contents = f.read()
     f.close()
 
-    try:
-        metadata = eval(contents)
-        if metadata['type'] == 'picture':
-            exif = metadata['exif']
-            date = datetime.datetime.strptime(
-                exif['exif:DateTime'], "%Y:%m:%d %H:%M:%S")
-            print date.strftime('%Y-%m-%d_%H:%M:%S'), metadata['thumbs']['320']
-    except:
-        pass
+    metadata = eval(contents)
+    if metadata.get('type') == 'picture':
+        exif = metadata['exif']
+        date_field = exif['exif:DateTimeOriginal']
+        date = datetime.datetime.strptime(date_field, "%Y:%m:%d %H:%M:%S")
+        print date.strftime('%Y-%m-%d_%H:%M:%S'), metadata['thumbs']['320'], url
+        if len(metadata.keys()) != 3:
+            assert False
 
 
 def to_url(base, fname):

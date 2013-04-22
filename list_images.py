@@ -26,12 +26,17 @@ def list_files(httpbase):
     f.close()
 
 
-def print_metadata(url):
+def load_metadata(url):
     f = urllib2.urlopen(url)
     contents = f.read()
     f.close()
 
-    metadata = eval(contents)
+    return eval(contents)
+
+
+def print_metadata(url):
+    metadata = load_metadata(url)
+
     if metadata.get('type') == 'picture':
         exif = metadata['exif']
         date_field = exif['exif:DateTimeOriginal']

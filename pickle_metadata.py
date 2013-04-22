@@ -11,8 +11,13 @@ def main(args):
     for fname in list_files(args.httpbase):
         if fname.endswith('.metadata'):
             url = to_url(args.httpbase, fname)
-            metadatas[url] = load_metadata(url)
-            logging.debug('%s loaded', fname)
+
+            hashname = fname[:-len('.metadata')]
+            metadatas[hashname] = dict(
+                data=load_metadata(url),
+                url=url)
+
+            logging.debug('%s loaded as %s', url, hashname)
 
     logging.info('Saving metadatas to %s', args.output)
 
